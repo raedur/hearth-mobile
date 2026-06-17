@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:network_info_plus/network_info_plus.dart';
 
@@ -103,6 +104,37 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final updated = [..._geofences, GeofenceLocation(name: name, lat: pos.latitude, lng: pos.longitude)];
     await _geofence.saveLocations(updated);
     setState(() => _geofences = updated);
+
+    if (Platform.isAndroid && mounted) {
+      await _promptBatteryOptimization();
+    }
+  }
+
+  static const _batteryChannel = MethodChannel('au.id.craig.hearth_app/battery');
+
+  Future<void> _promptBatteryOptimization() async {
+    try {
+      final isIgnoring = await _batteryChannel.invokeMethod<bool>('isIgnoringBatteryOptimizations') ?? false;
+      if (isIgnoring || !mounted) return;
+
+      final proceed = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Disable battery optimization'),
+          content: const Text(
+            'Android may block location triggers to save battery. '
+            'Tap "Allow" on the next screen so Hearth can notify you when you arrive somewhere.',
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Skip')),
+            TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Continue')),
+          ],
+        ),
+      );
+      if (proceed == true) {
+        await _batteryChannel.invokeMethod('requestIgnoreBatteryOptimizations');
+      }
+    } catch (_) {}
   }
 
   Future<void> _removeGeofence(GeofenceLocation loc) async {

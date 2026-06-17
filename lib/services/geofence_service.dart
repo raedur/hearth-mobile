@@ -120,7 +120,7 @@ class GeofenceService {
             triggers: {GeofenceEvent.enter},
             iosSettings: const IosGeofenceSettings(initialTrigger: false),
             androidSettings: const AndroidGeofenceSettings(
-              initialTriggers: {},
+              initialTriggers: {GeofenceEvent.enter},
               notificationResponsiveness: Duration(seconds: 30),
             ),
           ),

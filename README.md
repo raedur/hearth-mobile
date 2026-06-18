@@ -8,41 +8,48 @@ no unauthenticated routes.
 
 ## Status
 
-Planned. Not yet scaffolded. See `architecture.md` for the intended design.
+Scaffold complete — core screens, services, and Android config are in place. Not yet built
+against a real device (requires Windows Developer Mode for symlink support). Background
+service wiring and Bluetooth/NFC listeners are stubbed but not yet active.
+
+## CI
+
+Every push to `master` builds a release APK via GitHub Actions and publishes it as a
+tagged release (`build-<sha>`). Download the latest APK from the
+[Releases](https://github.com/raedur/hearth-mobile/releases) page.
 
 ## What this app does
 
 1. **Auth** — WhatsApp-as-IdP: the app opens WhatsApp with a one-time code, the bot issues
-   a JWT via deep link. Silent refresh every 7 days. Users never re-authenticate manually
-   as long as the app is used regularly.
+   a JWT via deep link. Silent refresh via opaque rotation token. Users never re-authenticate
+   manually as long as the app is opened occasionally.
 
-2. **Chat** — native chat UI backed by the Hearth bot. Equivalent to messaging the bot on
-   WhatsApp, but with a purpose-built interface.
+2. **Wiki** — browse and search the family wiki. Read-only rendered markdown view.
 
-3. **Wiki** — browse and search the family wiki. Read-only view of the markdown files
-   with rendered output.
-
-4. **Dashboard** — native view of tasks, reminders, and shopping list. Checkable items,
-   upcoming events, today's briefing.
-
-5. **Quick capture** — fast-add a note, photo, or voice memo. Sends to the Hearth server
-   as a message from the authenticated member. Also registered as an Android share target.
-
-6. **Geofencing / signals** — configure named locations, WiFi networks, Bluetooth devices,
-   and NFC tags. App posts silently when signals fire, triggering Hearth tasks automatically.
+3. **Signals** — configure named GPS geofences and WiFi networks. App posts silently when
+   signals fire, triggering Hearth tasks automatically.
 
 ## Tech
 
-- Flutter (Dart)
-- Target: Android first, iOS later
-- Auth: WhatsApp-as-IdP → JWT access token + opaque refresh token
-- All API calls go to the Hearth Express server (JWT-protected)
+- Flutter 3.41+ / Dart 3.11+
+- Android-first (min SDK 23), iOS later
+- Java 21 / Gradle 8.14 / Kotlin 2.2
+- Auth: WhatsApp-as-IdP → JWT (1hr) + opaque refresh token (rotating, no expiry)
+- All API calls hit the Hearth Express server (JWT-protected)
 
-## Setup (when ready to build)
+## Building locally
 
 ```
-flutter create . --org au.id.craig --project-name hearth_app
 flutter pub get
+flutter build apk --release
 ```
 
-See `architecture.md` for dependency choices and implementation notes.
+The APK is output to `build/app/outputs/flutter-apk/app-release.apk`.
+
+For development with hot reload:
+
+```
+flutter run
+```
+
+See `architecture.md` for design details, auth flow, signal design, and API surface.

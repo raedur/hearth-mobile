@@ -15,7 +15,8 @@ import 'trigger_notifications.dart';
 
 @pragma('vm:entry-point')
 Future<void> onGeofenceEvent(GeofenceCallbackParams params) async {
-  if (params.event != GeofenceEvent.enter) return;
+  if (params.event != GeofenceEvent.dwell &&
+      params.event != GeofenceEvent.enter) return;
 
   const storage = FlutterSecureStorage(
     aOptions: AndroidOptions(encryptedSharedPreferences: true),
@@ -61,8 +62,14 @@ class GeofenceLocation {
   final String name;
   final double lat;
   final double lng;
+  final double radiusMeters;
 
-  const GeofenceLocation({required this.name, required this.lat, required this.lng});
+  const GeofenceLocation({
+    required this.name,
+    required this.lat,
+    required this.lng,
+    this.radiusMeters = 200,
+  });
 }
 
 class GeofenceService {
@@ -78,6 +85,7 @@ class GeofenceService {
         name: parts[0],
         lat: double.parse(parts[1]),
         lng: double.parse(parts[2]),
+        radiusMeters: parts.length > 3 ? double.parse(parts[3]) : 200,
       );
     }).toList();
   }
@@ -86,7 +94,9 @@ class GeofenceService {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setStringList(
       kPrefGeofences,
-      locations.map((l) => '${l.name}|${l.lat}|${l.lng}').toList(),
+      locations
+          .map((l) => '${l.name}|${l.lat}|${l.lng}|${l.radiusMeters}')
+          .toList(),
     );
     await _syncWithOs(locations);
   }
@@ -111,16 +121,20 @@ class GeofenceService {
 
     for (final loc in locations) {
       try {
-        debugPrint('GeofenceService: registering "${loc.name}" at ${loc.lat},${loc.lng}');
+        debugPrint(
+          'GeofenceService: registering "${loc.name}" at '
+          '${loc.lat},${loc.lng} radius=${loc.radiusMeters}m',
+        );
         await NativeGeofenceManager.instance.createGeofence(
           Geofence(
             id: loc.name,
             location: Location(latitude: loc.lat, longitude: loc.lng),
-            radiusMeters: 200,
-            triggers: {GeofenceEvent.enter},
+            radiusMeters: loc.radiusMeters,
+            triggers: {GeofenceEvent.enter, GeofenceEvent.dwell},
             iosSettings: const IosGeofenceSettings(initialTrigger: false),
             androidSettings: const AndroidGeofenceSettings(
-              initialTriggers: {GeofenceEvent.enter},
+              initialTriggers: {GeofenceEvent.dwell},
+              loiteringDelay: Duration(minutes: 2),
               notificationResponsiveness: Duration(seconds: 30),
             ),
           ),

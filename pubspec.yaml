@@ -41,6 +41,10 @@ dependencies:
   native_geofence: ^1.2.2
   flutter_local_notifications: ^18.0.1
 
+  # Map for location picker (OpenStreetMap — no API key needed)
+  flutter_map: ^7.0.0
+  latlong2: ^0.9.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

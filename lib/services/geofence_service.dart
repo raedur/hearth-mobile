@@ -61,8 +61,28 @@ class GeofenceLocation {
   final String name;
   final double lat;
   final double lng;
+  final double radiusMeters;
 
-  const GeofenceLocation({required this.name, required this.lat, required this.lng});
+  const GeofenceLocation({
+    required this.name,
+    required this.lat,
+    required this.lng,
+    this.radiusMeters = 200,
+  });
+
+  Map<String, dynamic> toJson() => {
+    'name': name,
+    'lat': lat,
+    'lng': lng,
+    'radiusMeters': radiusMeters,
+  };
+
+  factory GeofenceLocation.fromJson(Map<String, dynamic> json) => GeofenceLocation(
+    name: json['name'] as String,
+    lat: (json['lat'] as num).toDouble(),
+    lng: (json['lng'] as num).toDouble(),
+    radiusMeters: (json['radiusMeters'] as num?)?.toDouble() ?? 200,
+  );
 }
 
 class GeofenceService {
@@ -72,23 +92,34 @@ class GeofenceService {
 
   Future<List<GeofenceLocation>> loadLocations() async {
     final prefs = await SharedPreferences.getInstance();
-    return (prefs.getStringList(kPrefGeofences) ?? []).map((s) {
-      final parts = s.split('|');
-      return GeofenceLocation(
-        name: parts[0],
-        lat: double.parse(parts[1]),
-        lng: double.parse(parts[2]),
-      );
-    }).toList();
+    final raw = prefs.getString(kPrefGeofences);
+    if (raw != null) {
+      final list = jsonDecode(raw) as List;
+      return list.map((e) => GeofenceLocation.fromJson(e as Map<String, dynamic>)).toList();
+    }
+    // Migrate legacy pipe-delimited format
+    final legacy = prefs.getStringList(kPrefGeofences);
+    if (legacy != null && legacy.isNotEmpty) {
+      final locations = legacy.map((s) {
+        final parts = s.split('|');
+        return GeofenceLocation(name: parts[0], lat: double.parse(parts[1]), lng: double.parse(parts[2]));
+      }).toList();
+      await _saveToPrefs(prefs, locations);
+      return locations;
+    }
+    return [];
   }
 
   Future<void> saveLocations(List<GeofenceLocation> locations) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setStringList(
-      kPrefGeofences,
-      locations.map((l) => '${l.name}|${l.lat}|${l.lng}').toList(),
-    );
+    await _saveToPrefs(prefs, locations);
     await _syncWithOs(locations);
+  }
+
+  Future<void> _saveToPrefs(SharedPreferences prefs, List<GeofenceLocation> locations) async {
+    // Remove legacy StringList key if present, store as JSON string
+    await prefs.remove(kPrefGeofences);
+    await prefs.setString(kPrefGeofences, jsonEncode(locations.map((l) => l.toJson()).toList()));
   }
 
   Future<void> reRegisterAfterReboot() async {
@@ -116,7 +147,7 @@ class GeofenceService {
           Geofence(
             id: loc.name,
             location: Location(latitude: loc.lat, longitude: loc.lng),
-            radiusMeters: 200,
+            radiusMeters: loc.radiusMeters,
             triggers: {GeofenceEvent.enter},
             iosSettings: const IosGeofenceSettings(initialTrigger: false),
             androidSettings: const AndroidGeofenceSettings(

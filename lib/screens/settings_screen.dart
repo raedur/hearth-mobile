@@ -242,10 +242,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
           Padding(
             padding: const EdgeInsets.only(top: 4),
             child: OutlinedButton.icon(
-              onPressed: () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => GeofenceMapScreen(existing: _geofences)),
-              ),
+              onPressed: () async {
+                final result = await Navigator.push<GeofenceLocation>(
+                  context,
+                  MaterialPageRoute(builder: (_) => GeofenceMapScreen(existing: _geofences)),
+                );
+                if (result == null || !mounted) return;
+                final updated = [..._geofences, result];
+                await _geofence.saveLocations(updated);
+                setState(() => _geofences = updated);
+              },
               icon: const Icon(Icons.map_outlined, size: 18),
               label: const Text('View on map'),
             ),

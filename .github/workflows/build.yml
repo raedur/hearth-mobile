@@ -25,7 +25,16 @@ jobs:
 
       - run: flutter pub get
 
-      - run: flutter build apk --release --target-platform android-arm64 --split-debug-info=build/debug-info
+      - name: Decode keystore
+        run: echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > $RUNNER_TEMP/hearth.jks
+
+      - name: Build release APK
+        env:
+          KEYSTORE_PATH: ${{ runner.temp }}/hearth.jks
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: hearth
+          KEY_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+        run: flutter build apk --release --target-platform android-arm64 --split-debug-info=build/debug-info
 
       - name: Create release
         uses: softprops/action-gh-release@v2

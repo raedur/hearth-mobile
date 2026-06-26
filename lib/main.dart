@@ -1,15 +1,17 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:native_geofence/native_geofence.dart';
+import 'package:package_info_plus/package_info_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import 'screens/login_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/wiki_screen.dart';
-import 'package:native_geofence/native_geofence.dart';
-
 import 'services/auth_service.dart';
 import 'services/geofence_service.dart';
 import 'services/trigger_notifications.dart';
+import 'services/update_service.dart';
 import 'widgets/flame_logo.dart';
 
 void main() async {
@@ -189,8 +191,40 @@ class _MainShellState extends State<MainShell> {
   @override
   void initState() {
     super.initState();
-    // Request notification permission after login on both Android 13+ and iOS
     requestNotificationPermission();
+    _checkForUpdate();
+  }
+
+  Future<void> _checkForUpdate() async {
+    final info = await PackageInfo.fromPlatform();
+    final currentBuild = int.tryParse(info.buildNumber) ?? 0;
+    final update = await UpdateService().check(info.version, currentBuild);
+    if (update == null || !mounted) return;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Update available'),
+        content: Text('Version ${update.version} is available.'),
+        actions: [
+          TextButton(
+            onPressed: () {
+              UpdateService().dismiss(update.buildNumber);
+              Navigator.pop(ctx);
+            },
+            child: const Text('Later'),
+          ),
+          if (update.downloadUrl.isNotEmpty)
+            FilledButton(
+              onPressed: () {
+                Navigator.pop(ctx);
+                launchUrl(Uri.parse(update.downloadUrl), mode: LaunchMode.externalApplication);
+              },
+              child: const Text('Update'),
+            ),
+        ],
+      ),
+    );
   }
 
   @override

@@ -25,6 +25,13 @@ jobs:
 
       - run: flutter pub get
 
+      - name: Read version from pubspec
+        id: version
+        run: |
+          VERSION=$(grep '^version:' pubspec.yaml | sed 's/version: //' | sed 's/+.*//')
+          echo "name=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "full=${VERSION}+${{ github.run_number }}" >> "$GITHUB_OUTPUT"
+
       - name: Decode keystore
         run: echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > $RUNNER_TEMP/hearth.jks
 
@@ -34,13 +41,13 @@ jobs:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: hearth
           KEY_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-        run: flutter build apk --release --target-platform android-arm64 --split-debug-info=build/debug-info
+        run: flutter build apk --release --target-platform android-arm64 --split-debug-info=build/debug-info --build-number=${{ github.run_number }}
 
       - name: Create release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: build-${{ github.sha }}
-          name: Build ${{ github.ref_name }}@${{ github.sha }}
+          tag_name: v${{ steps.version.outputs.full }}
+          name: v${{ steps.version.outputs.full }}
           body: ${{ github.event.head_commit.message }}
           files: build/app/outputs/flutter-apk/app-release.apk
           make_latest: true

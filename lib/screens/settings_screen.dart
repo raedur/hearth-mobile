@@ -8,6 +8,7 @@ import 'package:network_info_plus/network_info_plus.dart';
 import '../services/auth_service.dart';
 import '../services/geofence_service.dart';
 import '../services/wifi_service.dart';
+import 'geofence_map_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   final VoidCallback onSignedOut;
@@ -47,13 +48,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _addGeofence() async {
-    final name = await _showTextDialog(context, 'Location name', 'e.g. Shops');
-    if (name == null || name.isEmpty) return;
+    if (!await _ensureLocationPermission()) return;
     if (!mounted) return;
 
+    final result = await Navigator.push<GeofenceLocation>(
+      context,
+      MaterialPageRoute(builder: (_) => GeofenceMapScreen(existing: _geofences)),
+    );
+    if (result == null || !mounted) return;
+
+    final updated = [..._geofences, result];
+    await _geofence.saveLocations(updated);
+    setState(() => _geofences = updated);
+
+    if (Platform.isAndroid && mounted) {
+      await _promptBatteryOptimization();
+    }
+  }
+
+  Future<bool> _ensureLocationPermission() async {
     LocationPermission permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
-      if (!mounted) return;
+      if (!mounted) return false;
       final proceed = await showDialog<bool>(
         context: context,
         builder: (ctx) => AlertDialog(
@@ -68,15 +84,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ],
         ),
       );
-      if (proceed != true) return;
-      if (!mounted) return;
+      if (proceed != true) return false;
+      if (!mounted) return false;
       permission = await Geolocator.requestPermission();
     }
     if (permission == LocationPermission.denied || permission == LocationPermission.deniedForever) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Location permission denied')));
-      return;
+      return false;
     }
-    // Android 10+: background location requires a second step in app Settings
     if (permission == LocationPermission.whileInUse && mounted) {
       await showDialog<void>(
         context: context,
@@ -98,16 +113,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
       );
     }
-
-    if (!mounted) return;
-    final pos = await Geolocator.getCurrentPosition();
-    final updated = [..._geofences, GeofenceLocation(name: name, lat: pos.latitude, lng: pos.longitude)];
-    await _geofence.saveLocations(updated);
-    setState(() => _geofences = updated);
-
-    if (Platform.isAndroid && mounted) {
-      await _promptBatteryOptimization();
-    }
+    return true;
   }
 
   static const _batteryChannel = MethodChannel('au.id.craig.hearth_app/battery');
@@ -225,13 +231,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
           (loc) => ListTile(
             leading: const Icon(Icons.location_on_outlined),
             title: Text(loc.name),
-            subtitle: Text('${loc.lat.toStringAsFixed(4)}, ${loc.lng.toStringAsFixed(4)}'),
+            subtitle: Text('${loc.radiusMeters.round()} m radius'),
             trailing: IconButton(
               icon: const Icon(Icons.delete_outline),
               onPressed: () => _removeGeofence(loc),
             ),
           ),
         ),
+        if (_geofences.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: OutlinedButton.icon(
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => GeofenceMapScreen(existing: _geofences)),
+              ),
+              icon: const Icon(Icons.map_outlined, size: 18),
+              label: const Text('View on map'),
+            ),
+          ),
         if (Platform.isAndroid) ...[
           const Divider(height: 32),
           Row(

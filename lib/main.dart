@@ -1,11 +1,9 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:native_geofence/native_geofence.dart';
 import 'package:ota_update/ota_update.dart';
 import 'package:package_info_plus/package_info_plus.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import 'screens/login_screen.dart';
 import 'screens/settings_screen.dart';
@@ -225,25 +223,16 @@ class _MainShellState extends State<MainShell> {
     );
     if (accepted != true || !mounted) return;
 
-    if (Platform.isIOS) {
-      launchUrl(Uri.parse(update.downloadUrl), mode: LaunchMode.externalApplication);
-      return;
-    }
-
-    try {
-      OtaUpdate().execute(update.downloadUrl).listen(
-        (event) => debugPrint('OTA: ${event.status} ${event.value}'),
-        onError: (e) {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Update failed — try again later')),
-            );
-          }
-        },
-      );
-    } catch (_) {
-      launchUrl(Uri.parse(update.downloadUrl), mode: LaunchMode.externalApplication);
-    }
+    OtaUpdate().execute(update.downloadUrl).listen(
+      (event) => debugPrint('OTA: ${event.status} ${event.value}'),
+      onError: (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Update failed — try again later')),
+          );
+        }
+      },
+    );
   }
 
   @override

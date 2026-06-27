@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
@@ -20,14 +19,10 @@ class UpdateService {
 
   static const _kDismissedBuild = 'hearth_dismissed_update_build';
   static const _githubRepo = 'raedur/hearth-mobile';
-  static const _bundleId = 'au.id.craig.hearth_app';
 
   Future<UpdateInfo?> check(String currentVersion, int currentBuildNumber) async {
     try {
-      final info = Platform.isIOS
-          ? await _checkAppStore(currentVersion)
-          : await _checkGitHub();
-
+      final info = await _checkGitHub();
       if (info == null) return null;
       if (info.buildNumber <= currentBuildNumber && info.version == currentVersion) return null;
 
@@ -73,30 +68,6 @@ class UpdateService {
         buildNumber: buildNumber,
         downloadUrl: apk?['browser_download_url'] as String? ?? '',
       );
-    } catch (_) {
-      return null;
-    }
-  }
-
-  Future<UpdateInfo?> _checkAppStore(String currentVersion) async {
-    try {
-      final res = await http.get(
-        Uri.parse('https://itunes.apple.com/lookup?bundleId=$_bundleId'),
-      ).timeout(const Duration(seconds: 5));
-      if (res.statusCode != 200) return null;
-
-      final data = jsonDecode(res.body) as Map<String, dynamic>;
-      final results = data['results'] as List?;
-      if (results == null || results.isEmpty) return null;
-
-      final latest = results[0] as Map<String, dynamic>;
-      final storeVersion = latest['version'] as String? ?? '';
-      if (storeVersion == currentVersion) return null;
-
-      final trackId = latest['trackId'] as num?;
-      final storeUrl = trackId != null ? 'https://apps.apple.com/app/id$trackId' : '';
-
-      return UpdateInfo(version: storeVersion, buildNumber: 0, downloadUrl: storeUrl);
     } catch (_) {
       return null;
     }

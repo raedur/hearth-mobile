@@ -1,7 +1,9 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:native_geofence/native_geofence.dart';
+import 'package:ota_update/ota_update.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -199,9 +201,9 @@ class _MainShellState extends State<MainShell> {
     final info = await PackageInfo.fromPlatform();
     final currentBuild = int.tryParse(info.buildNumber) ?? 0;
     final update = await UpdateService().check(info.version, currentBuild);
-    if (update == null || !mounted) return;
+    if (update == null || update.downloadUrl.isEmpty || !mounted) return;
 
-    showDialog(
+    final accepted = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Update available'),
@@ -210,21 +212,38 @@ class _MainShellState extends State<MainShell> {
           TextButton(
             onPressed: () {
               UpdateService().dismiss(update.buildNumber);
-              Navigator.pop(ctx);
+              Navigator.pop(ctx, false);
             },
             child: const Text('Later'),
           ),
-          if (update.downloadUrl.isNotEmpty)
-            FilledButton(
-              onPressed: () {
-                Navigator.pop(ctx);
-                launchUrl(Uri.parse(update.downloadUrl), mode: LaunchMode.externalApplication);
-              },
-              child: const Text('Update'),
-            ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Update'),
+          ),
         ],
       ),
     );
+    if (accepted != true || !mounted) return;
+
+    if (Platform.isIOS) {
+      launchUrl(Uri.parse(update.downloadUrl), mode: LaunchMode.externalApplication);
+      return;
+    }
+
+    try {
+      OtaUpdate().execute(update.downloadUrl).listen(
+        (event) => debugPrint('OTA: ${event.status} ${event.value}'),
+        onError: (e) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Update failed — try again later')),
+            );
+          }
+        },
+      );
+    } catch (_) {
+      launchUrl(Uri.parse(update.downloadUrl), mode: LaunchMode.externalApplication);
+    }
   }
 
   @override

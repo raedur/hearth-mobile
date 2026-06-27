@@ -48,6 +48,9 @@ dependencies:
   # App version info for update checks
   package_info_plus: ^8.0.0
 
+  # OTA update — downloads and installs APK from a URL
+  ota_update: ^7.1.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

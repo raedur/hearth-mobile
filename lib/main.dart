@@ -1,15 +1,17 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:native_geofence/native_geofence.dart';
+import 'package:ota_update/ota_update.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 import 'screens/login_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/wiki_screen.dart';
-import 'package:native_geofence/native_geofence.dart';
-
 import 'services/auth_service.dart';
 import 'services/geofence_service.dart';
 import 'services/trigger_notifications.dart';
+import 'services/update_service.dart';
 import 'widgets/flame_logo.dart';
 
 void main() async {
@@ -189,8 +191,48 @@ class _MainShellState extends State<MainShell> {
   @override
   void initState() {
     super.initState();
-    // Request notification permission after login on both Android 13+ and iOS
     requestNotificationPermission();
+    _checkForUpdate();
+  }
+
+  Future<void> _checkForUpdate() async {
+    final info = await PackageInfo.fromPlatform();
+    final currentBuild = int.tryParse(info.buildNumber) ?? 0;
+    final update = await UpdateService().check(info.version, currentBuild);
+    if (update == null || update.downloadUrl.isEmpty || !mounted) return;
+
+    final accepted = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Update available'),
+        content: Text('Version ${update.version} is available.'),
+        actions: [
+          TextButton(
+            onPressed: () {
+              UpdateService().dismiss(update.buildNumber);
+              Navigator.pop(ctx, false);
+            },
+            child: const Text('Later'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Update'),
+          ),
+        ],
+      ),
+    );
+    if (accepted != true || !mounted) return;
+
+    OtaUpdate().execute(update.downloadUrl).listen(
+      (event) => debugPrint('OTA: ${event.status} ${event.value}'),
+      onError: (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Update failed — try again later')),
+          );
+        }
+      },
+    );
   }
 
   @override

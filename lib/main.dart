@@ -205,7 +205,7 @@ class _MainShellState extends State<MainShell> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Update available'),
-        content: Text('Version ${update.version} (build ${update.buildNumber}) is available.'),
+        content: Text('Version ${update.version} is available.'),
         actions: [
           TextButton(
             onPressed: () {

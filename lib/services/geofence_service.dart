@@ -148,10 +148,10 @@ class GeofenceService {
             id: loc.name,
             location: Location(latitude: loc.lat, longitude: loc.lng),
             radiusMeters: loc.radiusMeters,
-            triggers: {GeofenceEvent.dwell},
+            triggers: {GeofenceEvent.enter, GeofenceEvent.dwell},
             iosSettings: const IosGeofenceSettings(initialTrigger: false),
             androidSettings: const AndroidGeofenceSettings(
-              initialTriggers: {},
+              initialTriggers: {GeofenceEvent.enter},
               loiteringDelay: Duration(minutes: 1),
               notificationResponsiveness: Duration(seconds: 30),
             ),

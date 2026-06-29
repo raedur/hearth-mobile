@@ -223,16 +223,26 @@ class _MainShellState extends State<MainShell> {
     );
     if (accepted != true || !mounted) return;
 
-    OtaUpdate().execute(update.downloadUrl).listen(
-      (event) => debugPrint('OTA: ${event.status} ${event.value}'),
-      onError: (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Update failed — try again later')),
-          );
-        }
-      },
-    );
+    try {
+      OtaUpdate().execute(update.downloadUrl).listen(
+        (event) => debugPrint('OTA: ${event.status} ${event.value}'),
+        onError: (e) {
+          debugPrint('OTA stream error: $e');
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Update failed — try again later')),
+            );
+          }
+        },
+      );
+    } catch (e) {
+      debugPrint('OTA execute error: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Update failed — try again later')),
+        );
+      }
+    }
   }
 
   @override
